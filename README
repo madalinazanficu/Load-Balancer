@@ -1,0 +1,120 @@
+Copyright 2021 <Zanficu Madalina-Valentina 313CA>
+My program includes 5 .c files:
+1.server.c / server.h
+2.load_balancer.c / load_balancer.h
+3.LinkedList.c / LinkedList.h 
+4.CircularDoublyLinkedList.c / CircularDoublyLinkedList.h 
+5.extra.c
++ utils.h for DIE
+I will describe the functions from server.c, load_balancer.c and extra.c
+* SERVER.C / SERVER.H *
+-> implemented the server_memory (which is a hashtable) using Direct Chaining 
+   for collsions
+-> nodes'data from the lists will conatin strutures str_info 
+   (with fields: key, value)
+
+init_server_memory
+-> responsible for initializing the server_memory fields
+-> allocating memory for the array of list
+
+b.ht_server_has_key
+-> search through all the buckets if a key is present in the hashtable
+-> return 1 -> true, 0-> key is not present
+
+c.server_store
+-> manages to add a new entry (key, value) in hashtable
+-> if the key is already present, it is supposed to update the value
+-> otherwise, I allocate memory to add a new str_info entry
+
+d_server_remove
+-> for removing a (key, value) entry from the hashtable
+-> searching for the index_key, after hashing the key, and remove it
+
+e.server_retrieve
+-> searching for the value associated with a given key
+
+d_free_server_memory && free_list_inside_data
+-> responsible for release the server_memory used
+-> firstly eliberated the data inside the list (structures with key, value)
+-> after that the lists and the array of lists + server
+
+
+* LOAD_BALANCER.C / LOAD_BALANCER.H *
+-> implemented the load_balancer using a circular doubly linked list 
+   in order to have full control over the operations of adding and removing
+   of servers from the hash_ring
+-> node's data will contain structures -hr_element with: 
+                                        server_tag
+				         server_id
+					 hash of the server_tag 
+					 pointer which indicates to a hashtable
+					 
+-> to optimize the memory usage, objects are not stored on the hash_ring, 
+   they are added in the servers'hashtable (pSever-field from the structure)
+   
+a. init_load_balancer -> allocated memory and created the hash_ring (cdll)
+
+b. loader_add_server
+-> adding a new server in the hash_ring, in ascending order according to the hash
+-> finding the position where to add, depending on the hash of the server_tag, 
+   using "position_in_the_hash_ring" (from extra.c)
+-> initializating structures of type hr_element for the original server, 
+   and his copies with: server_id (inherited from the original server), 
+   server_tag, hash of server_tag, pointer to server_memeory 
+   (same for the original and replicas)										
+-> call redistribute_server_objects_add function (from extra.c)
+   in order to balance the objects on the hash_ring
+   
+   
+c. loader_remove_server
+-> removing a server and his duplicates from the hash_ring
+-> memory release for the data of the original and copies
+-> balancing the objects of the server which will be removed 
+   using redistribute_server_objects_remove (extra.c)
+-> and one memory release for the common pointer to the server_memory
+
+
+d. loader_store
+-> searching the server (based on his hash) to store (key, value) entry 
+   in server_memory
+
+e. loader_retreieve
+-> looking in the hash_ring for the server which contain an object with a given key
+-> used the server_retrieve function to return the value associated with the key
+
+f. free_load_balancer
+-> implemented to release the entry memory used: for the hash_ring (cdll), 
+   node's data, pointers to Hashtable, and for the load_balancer as well
+
+
+* EXTRA.C / EXTRA.H *
+a. hash_functions_servers (given)
+b. hash_functions_key (given)
+
+c. position in the hash_ring
+-> it is used from loader_add_store to find out the position where 
+   new_server will be stored
+-> linear searching, depending on the hash of the server 
+   (elements are in ascending order)
+-> in case of hash equality, we will check the server id
+
+d. searching_hash -> linear searching in cdll, for a specific hash
+                  -> O(n)- time complexity
+
+e. redistribute_server_object_add
+-> responsible for balancing server's objects, when a new server is added
+-> set conditions for corner cases such as: 
+   Not to distribute objects on the same server.
+   If the new server is added on the first position, the hash of the added object 
+   can be either smaller than that of the neighbor on the right or bigger than 
+   that of the neighbor on the left.
+   Otherwise, the object_hash should respect both condition simultaneous.
+   
+f. redistribute_server_object_remove
+-> responsible for balancing the hash_ring server's objects, 
+   when a server is removed
+-> went through server_memory buckets, and used loader store function to 
+   distribute the server's objects to other servers before deleting the server 
+   from the system.
+ 
+
